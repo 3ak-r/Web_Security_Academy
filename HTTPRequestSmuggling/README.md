@@ -34,6 +34,10 @@
     - [Goal](#goal-7)
     - [Analyze](#analyze-6)
       - [CL.TEのテスト](#clteのテスト)
+  - [Exploiting HTTP request smuggling to capture other users' requests](#exploiting-http-request-smuggling-to-capture-other-users-requests)
+    - [Goal](#goal-8)
+    - [Analyze](#analyze-7)
+    - [Exploit](#exploit-5)
 
 ## HTTP request smuggling, basic CL.TE vulnerability
 
@@ -744,6 +748,8 @@ CL.TEだと信じてラボを進めます。
 
 requestを見てみると、csrfトークンがありここを利用するのは厳しいことがわかります。
 
+* CSRF Tokenは自身のセッションと紐付いていて、必須とすることにします。(検査はめんどくさいのでしません)
+
 ```text
 POST /post/comment HTTP/2
 Host: 0a65001703bbaaa2800735c900ba00c3.web-security-academy.net
@@ -832,4 +838,60 @@ X-jryLjZ-Ip: 127.0.0.1
 search=
 ```
 ![](./images/README_231016_194425.png)
+
+## Exploiting HTTP request smuggling to capture other users' requests
+
+### Goal
+
+Cookieを奪って他者でログインした状態にする。
+
+### Analyze
+
+これは、前回のラボに解法は似ているため特に説明はしません。
+
+まずは脆弱性が存在するかのチェックを行っておきます。
+
+`CL.TE`
+![](./images/README_231017_142938.png)
+
+時間遅延が発生するので、CL.TEだと思います。
+
+脆弱性があることがわかったので次に機能の調査を行います。
+
+他者のリクエストのキャプチャをする以上、入力を見れる必要があります。
+
+今回のラボには何らかのコメントを投稿できる機能があるためコレを利用します。
+
+`コメントを投稿する際のリクエスト例`
+```text
+POST /post/comment HTTP/2
+Host: 0a8a00a303f172e281c3ccbe005c0011.web-security-academy.net
+Cookie: session=D9nNtIA0mQRDjEKCBrQGpXTua1JBQkE6
+Content-Length: 100
+Cache-Control: max-age=0
+Sec-Ch-Ua: "Not=A?Brand";v="99", "Chromium";v="118"
+Sec-Ch-Ua-Mobile: ?0
+Sec-Ch-Ua-Platform: "Linux"
+Upgrade-Insecure-Requests: 1
+Origin: https://0a8a00a303f172e281c3ccbe005c0011.web-security-academy.net
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: navigate
+Sec-Fetch-User: ?1
+Sec-Fetch-Dest: document
+Referer: https://0a8a00a303f172e281c3ccbe005c0011.web-security-academy.net/post?postId=9
+Accept-Encoding: gzip, deflate, br
+Accept-Language: ja,en-US;q=0.9,en;q=0.8
+
+csrf=MwyrUA0WtGHoQs19TirqlQeVRUT8wZgY&postId=9&comment=test&name=test&email=test%40exam.com&website=
+```
+
+comment部分を利用して攻撃を行っていけば良さそうです。
+
+### Exploit
+
+方針は定まっているので、後はやるだけです。
+
 
